@@ -2,11 +2,11 @@ plugins {
     id 'java'
     id 'org.springframework.boot' version '3.4.5'
     id 'io.spring.dependency-management' version '1.1.7'
-    id 'maven-publish'  // Add this line
+    id 'maven-publish'
 }
 
 group = 'com.example'
-version = '0.0.1-SNAPSHOT'
+version = '0.1.0'
 
 java {
     toolchain {
@@ -16,23 +16,62 @@ java {
 
 repositories {
     mavenCentral()
+    gradlePluginPortal()
 }
 
 publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+
+            versionMapping {
+                usage('java-api') {
+                    fromResolutionOf('runtimeClasspath')
+                }
+                usage('java-runtime') {
+                    fromResolutionOf('runtimeClasspath')
+                }
+            }
+        }
+    }
     repositories {
         maven {
             name = "GitHubPackages"
             url = uri("https://maven.pkg.github.com/gersondeveloper/ccld")
+            credentials {
+                username = project.findProperty("gpr.user") ?: System.getenv("USERNAME_GITHUB")
+                password = project.findProperty("gpr.key") ?: System.getenv("TOKEN_GITHUB")
+            }
         }
     }
 }
+
 
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
 }
 
 tasks.named('test') {
     useJUnitPlatform()
+}
+
+tasks.register('setProductVersion') {
+    doLast {
+        // Get the current version from the project
+        def currentVersion = project.version
+        def productVersion = project.hasProperty('productVersion') ? project.productVersion : currentVersion
+        println "Setting product version to: ${productVersion} (current version: ${currentVersion})"
+
+        // Update the version in gradle.properties
+        def gradlePropertiesFile = file('gradle.properties')
+        def properties = new Properties()
+        gradlePropertiesFile.withInputStream { properties.load(it) }
+        properties['version'] = productVersion
+        gradlePropertiesFile.withOutputStream { properties.store(it, null) }
+
+        println "Product version updated in gradle.properties"
+    }
 }
